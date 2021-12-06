@@ -62,7 +62,6 @@ async def broadcast(
     app: web.Application,
     room: str,
     message: dict,
-    ignore_users: Optional[List[str]] = None,
 ) -> None:
     """
     Broadcasts a message to every user in a room. Can specify a user to ignore.
@@ -70,10 +69,8 @@ async def broadcast(
     :param app: Application. From a request, pass `request.app`
     :param room: Room name
     :param message: What to broadcast
-    :param ignore_users: Skip broadcast to this user (used for e.g. chat messages)
     :return: None
     """
     for user, ws in app["websockets"][room].items():
-        if not ignore_users and user not in ignore_users:
-            logging.info("> Sending message %s to %s", message, user)
-            await ws.send_json(message)
+        logging.info("> Sending message %s to %s", message, user)
+        await ws.send_json(message)

@@ -8,6 +8,8 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QHBoxLayout,
     QMessageBox,
+    QVBoxLayout,
+    QTextBrowser,
 )
 from aiohttp import (
     ClientSession,
@@ -88,6 +90,23 @@ class Application:
         self.authorize_window.setLayout(self.authorize_layout)
 
         self.chat_window = QWidget()
+        self.chat_layout = QVBoxLayout()
+
+        self.chat_history_text_area = QTextBrowser()
+
+        self.chat_input_message = QLineEdit()
+        self.chat_input_message.setPlaceholderText("Введите сообщение")
+
+        self.chat_send_message = QPushButton("Отправить")
+        self.chat_send_message.clicked.connect(
+            lambda: asyncio.get_event_loop().run_until_complete(self.send_message())
+        )
+
+        self.chat_layout.addWidget(self.chat_history_text_area)
+        self.chat_layout.addWidget(self.chat_input_message)
+        self.chat_layout.addWidget(self.chat_send_message)
+
+        self.chat_window.setLayout(self.chat_layout)
 
         # Запускаем приложение
         self.app.exec()
@@ -182,6 +201,7 @@ class Application:
 
     async def subscribe_to_events(self, websocket: ClientWebSocketResponse):
         async for event in websocket:
+            print("new event")
             if isinstance(event, WSMessage):
                 if event.type == WSMsgType.text:
                     event_json = event.json()
@@ -205,8 +225,48 @@ class Application:
                             self.username = self.username_line_edit.text()
                             self.authorize_window.close()
                             self.chat_window.show()
+                            asyncio.ensure_future(self.handler())
 
                         return
+
+                    if event_json.get("action") == "chat_message":
+                        print("new_message")
+                        self.chat_history_text_area.setHtml(
+                            self.chat_history_text_area.text()
+                            + "\n"
+                            + event_json.get("message")
+                        )
+
+                    print(event_json)
+
+    async def send_message(self):
+        print("sending message")
+        async with ClientSession() as session:
+            async with session.ws_connect(f"ws://{self.host}:{self.port}") as ws:
+                await ws.send_json(  # Отправляем на сервер введенные логин и пароль
+                    {
+                        "action": "send_message",
+                        "username": self.username_line_edit.text(),
+                        "message": self.chat_input_message.text(),
+                    },
+                )
+
+    async def handler(self):
+        print("handler started")
+        async with ClientSession() as session:
+            async with session.ws_connect(f"ws://{self.host}:{self.port}") as ws:
+                read_message_task = asyncio.create_task(self.subscribe_to_events(ws))
+
+                done, pending = await asyncio.wait(
+                    [read_message_task],
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+
+                if not ws.closed:
+                    await ws.close()
+
+                for task in pending:
+                    task.cancel()
 
 
 if __name__ == "__main__":  # Запускаем приложение

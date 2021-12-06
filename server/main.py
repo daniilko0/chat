@@ -8,6 +8,7 @@ from database.core import init_db_connection
 from server.utils import broadcast, join_room, retrieve_users
 
 ALLOWED_USER_ACTIONS = ["join_room", "send_message", "get_users", "authorize"]
+logging.basicConfig(level=logging.DEBUG)
 
 
 async def ws_chat(request: Request) -> web.WebSocketResponse:
@@ -21,8 +22,29 @@ async def ws_chat(request: Request) -> web.WebSocketResponse:
     room = "Default"
     user = "User"
 
+    await current_websocket.send_json(
+        {"action": "connecting", "room": room, "user": user}
+    )
+
+    request.app["websockets"][room] = {}
+
+    # Check that the user does not exist in the room already
+    if request.app["websockets"][room].get(user):
+        logging.warning("User already connected. Disconnecting.")
+        await current_websocket.close(
+            code=WSCloseCode.TRY_AGAIN_LATER, message=b"Username already in use"
+        )
+        return current_websocket
+    else:
+        # {'websockets': {'<room>': {'<user>': 'obj', '<user2>': 'obj'}}}
+        request.app["websockets"][room][user] = current_websocket
+        # Inform everyone that user has joined
+        for ws in request.app["websockets"][room].values():
+            await ws.send_json({"action": "join", "user": user, "room": room})
+
     try:
         async for event in current_websocket:
+            print("server: new event")
             if isinstance(event, WSMessage):
                 if event.type == web.WSMsgType.text:
                     event_json = event.json()
@@ -94,6 +116,7 @@ async def ws_chat(request: Request) -> web.WebSocketResponse:
 
                     elif action == "send_message":
                         logging.info(f"{room}: Message: {event_json.get('message')}")
+                        # FIXME: каким-то хреном сообщения не долетают до клиента
                         await current_websocket.send_json(
                             {
                                 "action": "chat_message",
@@ -111,7 +134,9 @@ async def ws_chat(request: Request) -> web.WebSocketResponse:
                             },
                         )
     finally:
-        if (users := request.app.get("websockets").get(room)) is not None:
+        if (
+            users := request.app.get("websockets").get(room)
+        ) is not None and user in users:
             users.pop(user)
 
             await broadcast(
