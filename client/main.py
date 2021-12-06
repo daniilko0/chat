@@ -9,7 +9,14 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QMessageBox,
 )
-from aiohttp import ClientSession, WSServerHandshakeError
+from aiohttp import (
+    ClientSession,
+    WSServerHandshakeError,
+    ClientWebSocketResponse,
+    WSMessage,
+    WSMsgType,
+    ClientConnectionError,
+)
 
 
 class Application:
@@ -57,7 +64,11 @@ class Application:
 
         self.authorize_push_button = QPushButton("Авторизация")
         self.register_push_button = QPushButton("Регистрация")
-        self.authorize_push_button.clicked.connect(self.handle_authorize_button)
+        self.authorize_push_button.clicked.connect(
+            lambda: asyncio.get_event_loop().run_until_complete(
+                self.handle_authorize_button()
+            )
+        )
         self.register_push_button.clicked.connect(self.handle_register_button)
 
         self.authorize_layout.addWidget(self.username_line_edit)
@@ -101,7 +112,7 @@ class Application:
                         f"ws://{self.host}:{self.port}/", ssl=False
                     ) as ws:
                         await ws.ping()
-                except WSServerHandshakeError:
+                except (WSServerHandshakeError, ClientConnectionError):
                     alert.setWindowTitle("Ошибка!")
                     alert.setIcon(QMessageBox.Critical)
                     alert.setText("Невозможно подключиться к серверу")
@@ -116,11 +127,59 @@ class Application:
         alert.show()
         alert.exec()
 
-    def handle_authorize_button(self):
-        pass
+    async def handle_authorize_button(self):
+        async with ClientSession() as session:
+            try:
+                async with session.ws_connect(
+                    f"ws://{self.host}:{self.port}/", ssl=False
+                ) as ws:
+                    await ws.send_json(
+                        {
+                            "action": "authorize",
+                            "username": self.username_line_edit.text(),
+                            "password": self.password_line_edit.text(),
+                        },
+                    )
+                    read_events_task = await asyncio.create_task(
+                        self.subscribe_to_events(ws)
+                    )
+
+                    done, pending = await asyncio.wait(
+                        [read_events_task],
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+
+                    if not ws.closed:
+                        await ws.close()
+
+                    for task in pending:
+                        task.cancel()
+
+            except WSServerHandshakeError:
+                pass
 
     def handle_register_button(self):
         pass
+
+    @staticmethod
+    async def subscribe_to_events(websocket: ClientWebSocketResponse):
+        async for event in websocket:
+            if isinstance(event, WSMessage):
+                if event.type == WSMsgType.text:
+                    event_json = event.json()
+
+                    if event_json.get("action") == "authorized":
+                        alert = QMessageBox()
+                        if event_json.get("success"):
+                            alert.setText("Успех!")
+                            alert.setIcon(QMessageBox.Information)
+                            alert.setWindowTitle("Успешная авторизация")
+                        else:
+                            alert.setText("Ошибка!")
+                            alert.setIcon(QMessageBox.Critical)
+                            alert.setWindowTitle("Ошибка авторизации")
+                        alert.show()
+                        alert.exec()
 
 
 if __name__ == "__main__":
