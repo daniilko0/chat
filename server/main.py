@@ -7,7 +7,7 @@ from aiohttp.web_request import Request
 from database.core import init_db_connection
 from server.utils import broadcast, join_room, retrieve_users
 
-ALLOWED_USER_ACTIONS = ["join_room", "send_message", "get_users"]
+ALLOWED_USER_ACTIONS = ["join_room", "send_message", "get_users", "authorize"]
 
 
 async def ws_chat(request: Request) -> web.WebSocketResponse:
@@ -34,6 +34,14 @@ async def ws_chat(request: Request) -> web.WebSocketResponse:
                                 "action": action,
                                 "success": False,
                                 "reason": "Not allowed",
+                            }
+                        )
+
+                    elif action == "authorize":
+                        await current_websocket.send_json(
+                            {
+                                "action": "authorized",
+                                "success": True,
                             }
                         )
 
