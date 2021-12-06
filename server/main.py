@@ -104,13 +104,14 @@ async def ws_chat(request: Request) -> web.WebSocketResponse:
                             },
                         )
     finally:
-        request.app.get("websockets").get(room).pop(user)
+        if (users := request.app.get("websockets").get(room)) is not None:
+            users.pop(user)
 
-    await broadcast(
-        request.app,
-        room=room,
-        message={"action": "left", "room": room, "user": user},
-    )
+            await broadcast(
+                request.app,
+                room=room,
+                message={"action": "left", "room": room, "user": user},
+            )
 
     return current_websocket
 
