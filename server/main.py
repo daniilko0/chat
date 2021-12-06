@@ -1,7 +1,10 @@
+import asyncio
 import logging
+import os
 
 from aiohttp import web, WSCloseCode, WSMessage
 from aiohttp.web_request import Request
+from tortoise import Tortoise
 
 from server.utils import broadcast, join_room, retrieve_users
 
@@ -112,14 +115,31 @@ async def ws_chat(request: Request) -> web.WebSocketResponse:
     return current_websocket
 
 
-async def init_app() -> web.Application:
+def init_app() -> web.Application:
     app = web.Application()
     app["websockets"] = {}
 
+    TORTOISE_ORM = {
+        "connections": {"default": os.getenv("DATABASE_URL")},
+        "apps": {
+            "models": {
+                "models": [
+                    "database.models",
+                    "aerich.models",
+                ],
+            },
+        },
+    }
+    asyncio.get_event_loop().run_until_complete(init_db_connection(TORTOISE_ORM))
     app.on_shutdown.append(shutdown)
     app.add_routes([web.get("/", handler=ws_chat)])
 
     return app
+
+
+async def init_db_connection(config: dict):
+    await Tortoise.init(config)
+    await Tortoise.generate_schemas()
 
 
 async def shutdown(app):
@@ -138,3 +158,7 @@ def main():
     logging.info(f"Running server on {host}:{port}")
 
     web.run_app(app, host=host, port=port)
+
+
+if __name__ == "__main__":
+    main()
