@@ -9,6 +9,7 @@ python = "^3.9"
 aiohttp = "^3.8.1"
 tortoise-orm = "^0.17.8"
 aerich = "^0.5.8"
+PyQt5 = "^5.15.6"
 
 [tool.poetry.dev-dependencies]
 
