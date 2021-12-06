@@ -24,6 +24,7 @@ class Application:
 
         self.host = ""
         self.port = ""
+        self.username = ""
 
         self.app = QApplication([])  # Главное приложение
         self.connect_to_server_window = QWidget()  # Окно подключения к серверу
@@ -85,6 +86,8 @@ class Application:
         self.authorize_layout.addWidget(self.register_push_button)
 
         self.authorize_window.setLayout(self.authorize_layout)
+
+        self.chat_window = QWidget()
 
         # Запускаем приложение
         self.app.exec()
@@ -177,8 +180,7 @@ class Application:
     def handle_register_button(self):
         pass
 
-    @staticmethod
-    async def subscribe_to_events(websocket: ClientWebSocketResponse):
+    async def subscribe_to_events(self, websocket: ClientWebSocketResponse):
         async for event in websocket:
             if isinstance(event, WSMessage):
                 if event.type == WSMsgType.text:
@@ -188,16 +190,22 @@ class Application:
                         event_json.get("action") == "authorized"
                     ):  # Если пришло событие об авторизаци
                         alert = QMessageBox()  # Создаём месседж
-                        if event_json.get("success"):  # Если успех
-                            alert.setText("Успех!")
-                            alert.setIcon(QMessageBox.Information)
-                            alert.setWindowTitle("Успешная авторизация")
-                        else:  # Если произошла ошибка
+                        if not event_json.get("success"):  # Если ошибка
                             alert.setText("Ошибка!")
                             alert.setIcon(QMessageBox.Critical)
                             alert.setWindowTitle("Ошибка авторизации")
-                        alert.show()  # Показываем месседж
-                        alert.exec()
+                            alert.show()  # Показываем месседж
+                            alert.exec()
+                        else:  # Если успешно
+                            alert.setText("Успех!")
+                            alert.setIcon(QMessageBox.Information)
+                            alert.setWindowTitle("Успешная авторизация")
+                            alert.show()  # Показываем месседж
+                            alert.exec()
+                            self.username = self.username_line_edit.text()
+                            self.authorize_window.close()
+                            self.chat_window.show()
+
                         return
 
 
