@@ -153,7 +153,7 @@ class Application:
                             "password": self.password_line_edit.text(),
                         },
                     )
-                    read_events_task = await asyncio.create_task(  # Создаём задачу ожидания ответа от сервера
+                    read_events_task = asyncio.create_task(  # Создаём задачу ожидания ответа от сервера
                         self.subscribe_to_events(ws)
                     )
 
@@ -198,6 +198,7 @@ class Application:
                             alert.setWindowTitle("Ошибка авторизации")
                         alert.show()  # Показываем месседж
                         alert.exec()
+                        return
 
 
 if __name__ == "__main__":  # Запускаем приложение
