@@ -201,14 +201,14 @@ class Application:
 
     async def subscribe_to_events(self, websocket: ClientWebSocketResponse):
         async for event in websocket:
-            print("new event")
+            print("new event: ", end="")
             if isinstance(event, WSMessage):
                 if event.type == WSMsgType.text:
                     event_json = event.json()
-
+                    print(event_json)
                     if (
                         event_json.get("action") == "authorized"
-                    ):  # Если пришло событие об авторизаци
+                    ):  # Если пришло событие об авторизации
                         alert = QMessageBox()  # Создаём месседж
                         if not event_json.get("success"):  # Если ошибка
                             alert.setText("Ошибка!")
@@ -232,12 +232,16 @@ class Application:
                     if event_json.get("action") == "chat_message":
                         print("new_message")
                         self.chat_history_text_area.setHtml(
-                            self.chat_history_text_area.text()
+                            self.chat_history_text_area.toPlainText()
                             + "\n"
                             + event_json.get("message")
                         )
 
-                    print(event_json)
+                    if event_json.get("action") == "join":
+                        print("new_user")
+                        self.chat_history_text_area.setHtml(
+                            f"{self.chat_history_text_area.toHtml()}<br><b>{event_json.get('user')}</b> connected!<br>"
+                        )
 
     async def send_message(self):
         print("sending message")

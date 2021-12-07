@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections import defaultdict
 
 from aiohttp import web, WSCloseCode, WSMessage
 from aiohttp.web_request import Request
@@ -26,8 +27,6 @@ async def ws_chat(request: Request) -> web.WebSocketResponse:
         {"action": "connecting", "room": room, "user": user}
     )
 
-    request.app["websockets"][room] = {}
-
     # Check that the user does not exist in the room already
     if request.app["websockets"][room].get(user):
         logging.warning("User already connected. Disconnecting.")
@@ -48,6 +47,7 @@ async def ws_chat(request: Request) -> web.WebSocketResponse:
             if isinstance(event, WSMessage):
                 if event.type == web.WSMsgType.text:
                     event_json = event.json()
+                    print(event_json)
                     action = event_json.get("action")
                     user = event_json.get("username")
                     if action not in ALLOWED_USER_ACTIONS:
@@ -60,9 +60,14 @@ async def ws_chat(request: Request) -> web.WebSocketResponse:
                         )
 
                     elif action == "authorize":
+                        user = event_json.get("username")
+                        print(request.app["websockets"][room].values())
+                        for ws in request.app["websockets"][room].values():
+                            await ws.send_json({"action": "join", "user": user, "room": room})
                         await current_websocket.send_json(
                             {
                                 "action": "authorized",
+                                "username": user,
                                 "success": True,
                             }
                         )
@@ -150,7 +155,7 @@ async def ws_chat(request: Request) -> web.WebSocketResponse:
 
 def init_app() -> web.Application:
     app = web.Application()
-    app["websockets"] = {}
+    app["websockets"] = defaultdict(dict)
     asyncio.get_event_loop().run_until_complete(init_db_connection())
     app.on_shutdown.append(shutdown)
     app.add_routes([web.get("/", handler=ws_chat)])
