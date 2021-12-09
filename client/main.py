@@ -164,37 +164,30 @@ class Application:
 
     async def handle_authorize_button(self):
         async with ClientSession() as session:  # Пытаемся подключиться к серверу
-            try:
-                async with session.ws_connect(
-                    f"ws://{self.host}:{self.port}/", ssl=False
-                ) as ws:
-                    await ws.send_json(  # Отправляем на сервер введенные логин и пароль
-                        {
-                            "action": "authorize",
-                            "username": self.username_line_edit.text(),
-                            "password": self.password_line_edit.text(),
-                        },
-                    )
-                    read_events_task = asyncio.create_task(  # Создаём задачу ожидания ответа от сервера
-                        self.subscribe_to_events(ws)
-                    )
+            async with session.ws_connect(
+                f"ws://{self.host}:{self.port}/", ssl=False
+            ) as ws:
+                await ws.send_json(  # Отправляем на сервер введенные логин и пароль
+                    {
+                        "action": "authorize",
+                        "username": self.username_line_edit.text(),
+                        "password": self.password_line_edit.text(),
+                    },
+                )
+                read_events_task = asyncio.create_task(  # Создаём задачу ожидания ответа от сервера
+                    self.subscribe_to_events(ws)
+                )
 
-                    (
-                        done,
-                        pending,
-                    ) = await asyncio.wait(  # Ждем пока задача будет завершена
-                        [read_events_task],
-                        return_when=asyncio.FIRST_COMPLETED,
-                    )
+                (
+                    done,
+                    pending,
+                ) = await asyncio.wait(  # Ждем пока задача будет завершена
+                    [read_events_task],
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
 
-                    if not ws.closed:  # Закрываем подключение
-                        await ws.close()
-
-                    for task in pending:  # Отменяем оставшиеся задачи
-                        task.cancel()
-
-            except WSServerHandshakeError:
-                pass
+                for task in pending:  # Отменяем оставшиеся задачи
+                    task.cancel()
 
     def handle_register_button(self):
         pass
@@ -225,23 +218,21 @@ class Application:
                             self.username = self.username_line_edit.text()
                             self.authorize_window.close()
                             self.chat_window.show()
-                            asyncio.ensure_future(self.handler())
-
-                        return
 
                     if event_json.get("action") == "chat_message":
                         print("new_message")
                         self.chat_history_text_area.setHtml(
-                            self.chat_history_text_area.toPlainText()
+                            self.chat_history_text_area.toHtml()
                             + "\n"
-                            + event_json.get("message")
+                            + f">>> <b>{event_json.get('username')}</b>: {event_json.get('message')}"
                         )
 
                     if event_json.get("action") == "join":
-                        print("new_user")
-                        self.chat_history_text_area.setHtml(
-                            f"{self.chat_history_text_area.toHtml()}<br><b>{event_json.get('user')}</b> connected!<br>"
-                        )
+                        if event_json.get("user") != "User":
+                            print("new_user")
+                            self.chat_history_text_area.setHtml(
+                                f"{self.chat_history_text_area.toHtml()}<b>{event_json.get('user')}</b> connected!\n"
+                            )
 
     async def send_message(self):
         print("sending message")
@@ -254,11 +245,6 @@ class Application:
                         "message": self.chat_input_message.text(),
                     },
                 )
-
-    async def handler(self):
-        print("handler started")
-        async with ClientSession() as session:
-            async with session.ws_connect(f"ws://{self.host}:{self.port}") as ws:
                 read_message_task = asyncio.create_task(self.subscribe_to_events(ws))
 
                 done, pending = await asyncio.wait(
