@@ -1,16 +1,15 @@
 from aiohttp import web, WSMessage
 
+from database.models import Room, Message
+
 
 class ChatRoom(web.View):
 
-    """ Get room by slug display messages in this Room """
+    """Получает имя комнаты и историю сообщений в ней"""
 
     async def get(self):
-        room = ...  # Получить комнату из базы данных по имени: self.request.match_info['slug'].lower()
-        return {
-            'room': room,
-            'room_messages': await room.all_messages()
-        }
+        room: Room = await Room.get(name=self.request.match_info["slug"].lower())
+        return {"room": room, "room_messages": await Message.filter(room=room)}
 
 
 class WebSocket(web.View):
