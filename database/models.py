@@ -31,9 +31,13 @@ class Room(Model):
 class Message(Model):
     id = fields.IntField(pk=True)
     room = fields.ForeignKeyField("models.Room", related_name="room")
-    user = fields.ForeignKeyField("models.User", related_name="user")
-    text = fields.TextField()
-    attachment = fields.ForeignKeyField("models.Attachment", related_name="attachment")
+    user = fields.ForeignKeyField("models.User", related_name="user", null=True)
+    text = fields.TextField(null=True)
+    attachment = fields.ForeignKeyField(
+        "models.Attachment",
+        related_name="attachment",
+        null=True,
+    )
     created_at = fields.DatetimeField(default=datetime.now)
 
     def __str__(self):
