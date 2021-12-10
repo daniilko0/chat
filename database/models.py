@@ -9,6 +9,7 @@ class User(Model):
     password = fields.CharField(max_length=30)
 
 
-class Attachments(Model):
+class Attachment(Model):
     id = fields.UUIDField(pk=True)
     type = fields.CharEnumField(AttachmentType, max_length=5)
+    path = fields.CharField(max_length=50)
