@@ -1,5 +1,6 @@
 import asyncio
 import re
+import sys
 
 from PyQt5.QtWidgets import (
     QApplication,
@@ -13,10 +14,6 @@ from PyQt5.QtWidgets import (
 )
 from aiohttp import (
     ClientSession,
-    WSServerHandshakeError,
-    ClientWebSocketResponse,
-    WSMessage,
-    WSMsgType,
     ClientConnectionError,
 )
 
@@ -252,12 +249,13 @@ class Application:
                     return_when=asyncio.FIRST_COMPLETED,
                 )
 
-                if not ws.closed:
-                    await ws.close()
-
-                for task in pending:
-                    task.cancel()
+def exception_hook(exctype, value, traceback):
+    print(exctype, value, traceback)
+    sys._excepthook(exctype, value, traceback)
+    sys.exit(1)
 
 
 if __name__ == "__main__":  # Запускаем приложение
+    sys._excepthook = sys.excepthook
+    sys.excepthook = exception_hook
     Application()
