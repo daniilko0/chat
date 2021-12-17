@@ -6,7 +6,7 @@ from database.models import Room, Message
 
 class Root(web.View):
     async def get(self):
-        return web.Response(text="Hello world!")
+        return web.WebSocketResponse()
 
 
 class ChatRoom(web.View):
