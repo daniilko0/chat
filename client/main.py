@@ -24,6 +24,7 @@ class Application:
         self.host = ""
         self.port = ""
         self.username = ""
+        self.ws = None
 
         self.app = QApplication([])  # Главное приложение
         self.connect_to_server_window = QWidget()  # Окно подключения к серверу
@@ -130,30 +131,27 @@ class Application:
             alert.setText("Неверный формат хоста")
 
         else:  # Валидация данных пройдена
-
             self.host = self.host_line_edit.text()  # Сохраняем хост и порт
             self.port = self.port_line_edit.text()
 
-            async with ClientSession() as session:  # Пытаемся подключиться к серверу
-                try:
+            try:
+                async with ClientSession() as session:
                     async with session.ws_connect(
-                        f"ws://{self.host}:{self.port}/", ssl=False
+                        f"ws://{self.host}:{self.port}"
                     ) as ws:
-                        await ws.ping()  # Проверяем, работает ли сервер
-                except (
-                    WSServerHandshakeError,
-                    ClientConnectionError,
-                ):  # Если возникла ошибка
-                    alert.setWindowTitle("Ошибка!")
-                    alert.setIcon(QMessageBox.Critical)
-                    alert.setText("Невозможно подключиться к серверу")
-                else:  # Если все хорошо
-                    alert.setWindowTitle("Успех!")
-                    alert.setIcon(QMessageBox.Information)
-                    alert.setText("Подключение...")
+                        await ws.ping()
+            except ClientConnectionError as e:
+                alert.setWindowTitle("Ошибка!")
+                alert.setIcon(QMessageBox.Critical)
+                alert.setText(f"Невозможно подключиться к серверу. Ошибка {e}")
+            else:  # Если все хорошо
+                alert.setWindowTitle("Успех!")
+                alert.setIcon(QMessageBox.Information)
+                alert.setText("Подключение...")
 
-                    self.connect_to_server_window.close()  # Закрываем окно подключения к серверу
-                    self.authorize_window.show()  # Открываем окно авторизации / регистрации
+                self.ws = ws
+                self.connect_to_server_window.close()  # Закрываем окно подключения к серверу
+                self.authorize_window.show()  # Открываем окно авторизации / регистрации
 
         # Показать месседж
         alert.show()
