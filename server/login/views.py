@@ -1,45 +1,56 @@
+import json
 import re
-from datetime import time
 
 from aiohttp import web
+from tortoise.exceptions import DoesNotExist
 
-from server.utils.tools import redirect
+from database.models import User
 
 
 class Login(web.View):
 
     """Simple Login user by username"""
 
-    @staticmethod
-    async def get():
-        return {}
+    async def get(self):
+        username = await self._get_username()
+        password = await self._get_password()
+        # try:
+        #     user = await User.get(
+        #         username=username, password=password
+        #     )  # получить пользователя по юзернейму из БД
+        # except DoesNotExist:
+        #     return web.Response(
+        #         text=json.dumps(
+        #             {
+        #                 "action": "authorize",
+        #                 "status": "error",
+        #                 "error": "User not found",
+        #             }
+        #         ),
+        #         status=404,
+        #     )
+        # else:
+        # return web.Response(
+        #     text=json.dumps(
+        #         {"action": "authorize", "status": "success", "user": username}
+        #     )
+        # )
+        return web.Response(
+            body=json.dumps(
+                {"action": "authorize", "status": "success", "user": username}
+            ),
+            content_type="application/json",
+        )
 
-    async def post(self):
-        """Проверяет юзернейм и логинит"""
-        username = await self.is_valid()
-        if not username:
-            redirect(self.request, "login")
-        user = ...  # получить пользователя по юзернейму из БД
-        await self.login_user(user)
-        redirect(self.request, "login")
-
-    async def login_user(self, user):
-        """
-        Сохраняет пользователя в сессию и перенаправляет в чат.
-
-        Args:
-            user: Имя пользователя
-        """
-        self.request["session"]["user"] = str(user.id)
-        self.request["session"]["time"] = time()
-        self.request.match_info["slug"] = "default"
-        redirect(self.request, "ws")
-
-    async def is_valid(self):
+    async def _get_username(self):
         """Получает юзернейм и проверяет валидность"""
-        data = await self.request.post()
-        username = data.get("username", "").lower()
+        data = await self.request.json()
+        username = data.get("username", "")
         if not re.match(r"^[a-z]\w{0,9}$", username):
-            pass
             return False
         return username
+
+    async def _get_password(self):
+        data = await self.request.json()
+        password = data.get("password")
+        return password
