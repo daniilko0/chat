@@ -3,6 +3,11 @@ from aiohttp import web, WSMessage
 from database.models import Room, Message
 
 
+class Root(web.View):
+    async def get(self):
+        return web.Response(text="Hello world!")
+
+
 class ChatRoom(web.View):
 
     """Получает имя комнаты и историю сообщений в ней"""
