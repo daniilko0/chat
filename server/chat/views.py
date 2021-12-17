@@ -1,4 +1,5 @@
 from aiohttp import web, WSMessage
+from tortoise.exceptions import DoesNotExist
 
 from database.models import Room, Message
 
@@ -13,8 +14,18 @@ class ChatRoom(web.View):
     """Получает имя комнаты и историю сообщений в ней"""
 
     async def get(self):
-        room: Room = await Room.get(name=self.request.match_info["slug"].lower())
-        return {"room": room, "room_messages": await Message.filter(room=room)}
+        room_name = self.request.match_info["slug"].lower()
+        try:
+            room: Room = await Room.get(name=room_name)
+        except DoesNotExist:
+            return web.Response(
+                text='{"room": room_name, "error": "Does not exist!"}', status=500
+            )
+        return web.Response(
+            text='{"room": room, "room_messages": {}}'.format(
+                await Message.filter(room=room)
+            )
+        )
 
 
 class WebSocket(web.View):
