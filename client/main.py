@@ -105,6 +105,9 @@ class Application:
         )
 
         self.chat_history_text_area = QTextBrowser()
+        self.chat_history_text_area.textChanged.connect(
+            self.chat_history_text_area_scroll_to_bottom
+        )
 
         self.chat_input_message = QLineEdit()
         self.chat_input_message.setPlaceholderText("Введите сообщение")
@@ -221,6 +224,11 @@ class Application:
         """Очищает историю для всех пользователей в комнате"""
         self.chat_history_text_area.clear()
         await Message.filter(room_id=1).delete()
+
+    def chat_history_text_area_scroll_to_bottom(self):
+        self.chat_history_text_area.verticalScrollBar().setValue(
+            self.chat_history_text_area.verticalScrollBar().maximum()
+        )
 
     async def start_listening(self):
         """Раз в 0.3 секунды обновляет сообщения в истории"""
