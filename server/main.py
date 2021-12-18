@@ -28,6 +28,7 @@ def create_app() -> web.Application:
         [
             web.get("/", handler=Root, name="root"),
             web.get("/ws/{slug}", handler=WebSocket, name="ws"),
+            web.post("/ws/{slug}", handler=WebSocket, name="ws"),
             web.get("/room/{slug}", handler=ChatRoom, name="get_history"),
             web.get("/login", handler=Login, name="login"),
         ]

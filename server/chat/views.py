@@ -1,7 +1,11 @@
+import logging
+
 from aiohttp import web
 from tortoise.exceptions import DoesNotExist
 
 from database.models import Room, Message, User
+
+logging.basicConfig(level="DEBUG")
 
 
 class Root(web.View):
@@ -57,4 +61,8 @@ class WebSocket(web.View):
                 text=data.get("message", ""),
             )
 
+        return web.Response()
+
+    async def post(self):
+        print(await self.request.multipart())
         return web.Response()
