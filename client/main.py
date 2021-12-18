@@ -1,4 +1,5 @@
 import asyncio
+import io
 import re
 import sys
 import threading
@@ -13,11 +14,14 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QTextBrowser,
     QLabel,
+    QFileDialog,
 )
 from aiohttp import (
     ClientSession,
     ClientConnectionError,
+    MultipartWriter,
 )
+from multidict import MultiMapping
 
 from database.core import init_db_connection
 from database.models import Message
@@ -117,11 +121,17 @@ class Application:
             lambda: asyncio.get_event_loop().run_until_complete(self.send_message())
         )
 
+        self.chat_send_image = QPushButton("Прикрепить")
+        self.chat_send_image.clicked.connect(
+            lambda: asyncio.get_event_loop().run_until_complete(self.attach_image())
+        )
+
         self.chat_layout.addWidget(self.chat_username_label)
         self.chat_layout.addWidget(self.chat_clear_history_button)
         self.chat_layout.addWidget(self.chat_history_text_area)
         self.chat_layout.addWidget(self.chat_input_message)
         self.chat_layout.addWidget(self.chat_send_message)
+        self.chat_layout.addWidget(self.chat_send_image)
 
         self.chat_window.setLayout(self.chat_layout)
 
@@ -133,12 +143,10 @@ class Application:
 
         if not self.host_line_edit.text():  # Если хост не указан
             alert.setWindowTitle("Ошибка!")
-            alert.setIcon(QMessageBox.Critical)
             alert.setText("Хост должен быть указан")
 
         elif not self.port_line_edit.text():  # Если порт не указан
             alert.setWindowTitle("Ошибка!")
-            alert.setIcon(QMessageBox.Critical)
             alert.setText("Порт должен быть указан")
 
         elif not re.match(  # Если порт не IP-адрес (регулярка взята с https://ihateregex.io)
@@ -146,7 +154,6 @@ class Application:
             self.host_line_edit.text(),
         ):
             alert.setWindowTitle("Ошибка!")
-            alert.setIcon(QMessageBox.Critical)
             alert.setText("Неверный формат хоста")
 
         else:  # Валидация данных пройдена
@@ -161,11 +168,9 @@ class Application:
                         await ws.ping()
             except ClientConnectionError as e:
                 alert.setWindowTitle("Ошибка!")
-                alert.setIcon(QMessageBox.Critical)
                 alert.setText(f"Невозможно подключиться к серверу. Ошибка {e}")
             else:  # Если все хорошо
                 alert.setWindowTitle("Успех!")
-                alert.setIcon(QMessageBox.Information)
                 alert.setText("Подключение...")
                 self.connect_to_server_window.close()  # Закрываем окно подключения к серверу
                 self.authorize_window.show()  # Открываем окно авторизации / регистрации
@@ -188,11 +193,9 @@ class Application:
             ) as resp:
                 if "error" in await resp.json():
                     alert.setWindowTitle("Ошибка!")
-                    alert.setIcon(QMessageBox.Critical)
                     alert.setText("Неверный логин/пароль")
                 else:  # Если все хорошо
                     alert.setWindowTitle("Успех!")
-                    alert.setIcon(QMessageBox.Information)
                     alert.setText("Подключение...")
                     self.authorize_window.close()  # Закрываем окно подключения к серверу
                     self.chat_username_label.setText(self.username)
@@ -228,6 +231,29 @@ class Application:
         self.chat_history_text_area.verticalScrollBar().setValue(
             self.chat_history_text_area.verticalScrollBar().maximum()
         )
+
+    async def attach_image(self):
+        file_name = QFileDialog().getOpenFileName(
+            caption="Прикрепить изображение",
+            filter="Изображение JPEG (*.jpeg);;Изображение JPG (*.jpg);;Изображение PNG (*.png)",
+        )[0]
+
+        async with ClientSession() as session:
+            # TODO: Добавить boundary к данным
+            with MultipartWriter("form-data") as mpwriter:
+                mpwriter.append(open(file_name, "rb"))
+                mpwriter.append_json(
+                    {
+                        "action": "send_message",
+                        "username": self.username,
+                        "attachment": "image",
+                    }
+                )
+                await session.post(
+                    f"http://{self.host}:{self.port}/ws/default",
+                    headers={"Content-Type": "multipart/form-data"},
+                    data=mpwriter,
+                )
 
     async def start_listening(self):
         """Раз в 0.3 секунды обновляет сообщения в истории"""
