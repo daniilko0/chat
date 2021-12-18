@@ -98,6 +98,12 @@ class Application:
 
         self.chat_username_label = QLabel()
 
+        self.chat_clear_history_button = QPushButton()
+        self.chat_clear_history_button.setText("Очистить историю")
+        self.chat_clear_history_button.clicked.connect(
+            lambda: asyncio.get_event_loop().run_until_complete(self.clear_history())
+        )
+
         self.chat_history_text_area = QTextBrowser()
 
         self.chat_input_message = QLineEdit()
@@ -109,6 +115,7 @@ class Application:
         )
 
         self.chat_layout.addWidget(self.chat_username_label)
+        self.chat_layout.addWidget(self.chat_clear_history_button)
         self.chat_layout.addWidget(self.chat_history_text_area)
         self.chat_layout.addWidget(self.chat_input_message)
         self.chat_layout.addWidget(self.chat_send_message)
@@ -210,7 +217,13 @@ class Application:
             ) as resp:
                 pass
 
+    async def clear_history(self):
+        """Очищает историю для всех пользователей в комнате"""
+        self.chat_history_text_area.clear()
+        await Message.filter(room_id=1).delete()
+
     async def start_listening(self):
+        """Раз в 0.3 секунды обновляет сообщения в истории"""
         while True:
             messages = await Message.filter(room_id=1).prefetch_related("user")
             for msg in messages:
