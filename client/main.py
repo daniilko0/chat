@@ -1,6 +1,7 @@
 import asyncio
 import re
 import sys
+import threading
 
 from PyQt5.QtWidgets import (
     QApplication,
@@ -17,6 +18,9 @@ from aiohttp import (
     ClientConnectionError,
 )
 
+from database.core import init_db_connection
+from database.models import Message
+
 
 class Application:
     def __init__(self):
@@ -25,6 +29,7 @@ class Application:
         self.port = ""
         self.username = ""
         self.ws = None
+        self.drawn_messages = []
 
         self.app = QApplication([])  # Главное приложение
         self.connect_to_server_window = QWidget()  # Окно подключения к серверу
@@ -176,74 +181,38 @@ class Application:
                     alert.setText("Подключение...")
                     self.authorize_window.close()  # Закрываем окно подключения к серверу
                     self.chat_window.show()  # Открываем окно авторизации / регистрации
+                    thread = threading.Thread(
+                        target=asyncio.run, args=(self.start_listening(),)
+                    )
+                    thread.start()
         alert.exec()
         alert.show()
 
     def handle_register_button(self):
         pass
 
-    # async def subscribe_to_events(self, websocket: ClientWebSocketResponse):
-    #     async for event in websocket:
-    #         print("new event: ", end="")
-    #         if isinstance(event, WSMessage):
-    #             if event.type == WSMsgType.text:
-    #                 event_json = event.json()
-    #                 print(event_json)
-    #                 if (
-    #                     event_json.get("action") == "authorized"
-    #                 ):  # Если пришло событие об авторизации
-    #                     alert = QMessageBox()  # Создаём месседж
-    #                     if not event_json.get("success"):  # Если ошибка
-    #                         alert.setText("Ошибка!")
-    #                         alert.setIcon(QMessageBox.Critical)
-    #                         alert.setWindowTitle("Ошибка авторизации")
-    #                         alert.show()  # Показываем месседж
-    #                         alert.exec()
-    #                     else:  # Если успешно
-    #                         alert.setText("Успех!")
-    #                         alert.setIcon(QMessageBox.Information)
-    #                         alert.setWindowTitle("Успешная авторизация")
-    #                         alert.show()  # Показываем месседж
-    #                         alert.exec()
-    #                         self.username = self.username_line_edit.text()
-    #                         self.authorize_window.close()
-    #                         self.chat_window.show()
-    #
-    #                 if event_json.get("action") == "chat_message":
-    #                     print("new_message")
-    #                     self.chat_history_text_area.setHtml(
-    #                         self.chat_history_text_area.toHtml()
-    #                         + "\n"
-    #                         + f">>> <b>{event_json.get('username')}</b>: {event_json.get('message')}"
-    #                     )
-    #
-    #                 if event_json.get("action") == "join":
-    #                     if event_json.get("user") != "User":
-    #                         print("new_user")
-    #                         self.chat_history_text_area.setHtml(
-    #                             f"{self.chat_history_text_area.toHtml()}<b>{event_json.get('user')}</b> connected!\n"
-    #                         )
-
     async def send_message(self):
-        await self.ws.send_json(  # Отправляем на сервер введенные логин и пароль
-            {
-                "action": "send_message",
-                "username": self.username_line_edit.text(),
-                "message": self.chat_input_message.text(),
-            },
-        )
-        # read_message_task = asyncio.create_task(self.subscribe_to_events(ws))
-        #
-        # done, pending = await asyncio.wait(
-        #     [read_message_task],
-        #     return_when=asyncio.FIRST_COMPLETED,
-        # )
-        #
-        # if not ws.closed:
-        #     await ws.close()
-        #
-        # for task in pending:
-        #     task.cancel()
+        async with ClientSession() as session:
+            async with session.get(
+                f"http://{self.host}:{self.port}/ws/default",
+                json={
+                    "action": "send_message",
+                    "username": self.username_line_edit.text(),
+                    "message": self.chat_input_message.text(),
+                    "silent": True,
+                },
+            ) as resp:
+                pass
+
+    async def start_listening(self):
+        while True:
+            messages = await Message.filter(room_id=1).prefetch_related("user")
+            for msg in messages:
+                if msg not in self.drawn_messages:
+                    self.drawn_messages.append(msg)
+                    content = f"\n[{msg.user.username}]: {msg.text if msg.text else ''}"
+                    self.chat_history_text_area.insertPlainText(content)
+            await asyncio.sleep(0.3)
 
 
 def exception_hook(exctype, value, traceback):
@@ -255,4 +224,5 @@ def exception_hook(exctype, value, traceback):
 if __name__ == "__main__":  # Запускаем приложение
     sys._excepthook = sys.excepthook
     sys.excepthook = exception_hook
+    asyncio.get_event_loop().run_until_complete(init_db_connection())
     Application()
