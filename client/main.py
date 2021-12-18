@@ -216,7 +216,11 @@ class Application:
             for msg in messages:
                 if msg not in self.drawn_messages:
                     self.drawn_messages.append(msg)
-                    content = f"\n[{msg.user.username}]: {msg.text if msg.text else ''}"
+                    if msg.user.username == self.username:
+                        username = "Вы"
+                    else:
+                        username = msg.user.username
+                    content = f"\n[{username}]: {msg.text if msg.text else ''}"
                     self.chat_history_text_area.insertPlainText(content)
             await asyncio.sleep(0.3)
 
