@@ -2,9 +2,6 @@ import json
 import re
 
 from aiohttp import web
-from tortoise.exceptions import DoesNotExist
-
-from database.models import User
 
 
 class Login(web.View):

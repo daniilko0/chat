@@ -1,11 +1,12 @@
-from aiohttp import web, WSMessage
+from aiohttp import web
 from tortoise.exceptions import DoesNotExist
 
-from database.models import Room, Message
+from database.models import Room, Message, User
 
 
 class Root(web.View):
-    async def get(self):
+    @staticmethod
+    async def get():
         return web.WebSocketResponse()
 
 
@@ -32,62 +33,28 @@ class WebSocket(web.View):
 
     room = None
 
-    async def broadcast(self, message):
-        """
-        Отправить сообщение всем в комнате
-
-        Args:
-            message: Сообщение
-
-        """
-        for peer in self.request.app["wslist"][self.room.id].values():
-            peer.send_json(message)
-
-    async def disconnect(self, username, socket, silent=False):
-        """
-        Отключает пользователя от комнаты
-
-        Args:
-            username: Имя пользователя
-            socket: Сокет
-            silent: Не отправлять сообщение
-
-        """
-        self.request.app["wslist"][self.room.id].pop(username)
-
-        if not socket.closed:
-            await socket.close()
-
-        if not silent:
-            message = ...  # Сохранить сообщение о выходе в БД
-            await self.broadcast(message)
-
     async def get(self):
         """Обработка событий"""
-        self.room = ...  # Брать из БД
-        user = self.request["user"]
-        app = self.request.app
 
-        ws = web.WebSocketResponse()
-        await ws.prepare(self.request)
-        if self.room.id not in app["wslist"]:
-            app["wslist"][self.room.id] = {}
+        room = await Room.get_or_create(name=self.request.match_info["slug"].lower())
+        self.room = room[0]  # Брать из БД
 
-        app["wslist"][self.room.id][user.username] = ws
-        message = ...  # Сохранить сообщение о присоединении пользователя в БД
+        data = await self.request.json()
+        user = data.get("username")
 
-        await self.broadcast(message)
+        if data.get("action", "") == "authorize" and "silent" not in data:
+            # Сохранить сообщение о присоединении пользователя в БД
+            await Message.create(
+                user=await User.get(username=user),
+                room=self.room.name,
+                text=f"Пользователь {user} присоединился",
+            )
 
-        async for msg in ws:
-            if isinstance(msg, WSMessage):
-                if msg.type == web.WSMsgType.text:
-                    text = msg.data.strip()
-                    message = ...  # Сохранить сообщение в БД
-                    await self.broadcast(message)
+        if data.get("action", "") == "send_message":
+            await Message.create(
+                user=await User.get(username=user),
+                room_id=self.room.id,
+                text=data.get("message", ""),
+            )
 
-        app["wslist"].pop(user.username)
-
-        message = ...  # Сохранить сообщение о покидании чата в БД
-        await self.broadcast(message)
-
-        return ws
+        return web.Response()

@@ -12,9 +12,6 @@ logging.basicConfig(level=logging.DEBUG)
 
 async def shutdown(server, app, handler):
     """Выключение сервера."""
-    for room in app["wslist"].values():
-        for peer in room.values():
-            peer.send_json({"text": "Server shutdown"})
 
     server.close()
     await server.wait_closed()
