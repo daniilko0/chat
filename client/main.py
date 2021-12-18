@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QVBoxLayout,
     QTextBrowser,
+    QLabel,
 )
 from aiohttp import (
     ClientSession,
@@ -95,6 +96,8 @@ class Application:
         self.chat_window = QWidget()
         self.chat_layout = QVBoxLayout()
 
+        self.chat_username_label = QLabel()
+
         self.chat_history_text_area = QTextBrowser()
 
         self.chat_input_message = QLineEdit()
@@ -105,6 +108,7 @@ class Application:
             lambda: asyncio.get_event_loop().run_until_complete(self.send_message())
         )
 
+        self.chat_layout.addWidget(self.chat_username_label)
         self.chat_layout.addWidget(self.chat_history_text_area)
         self.chat_layout.addWidget(self.chat_input_message)
         self.chat_layout.addWidget(self.chat_send_message)
@@ -162,6 +166,7 @@ class Application:
 
     async def handle_authorize_button(self):
         alert = QMessageBox()  # Создаём окошко для ошибки
+        self.username = self.username_line_edit.text()
         async with ClientSession() as session:
             async with session.get(
                 f"http://{self.host}:{self.port}/login",
@@ -180,6 +185,7 @@ class Application:
                     alert.setIcon(QMessageBox.Information)
                     alert.setText("Подключение...")
                     self.authorize_window.close()  # Закрываем окно подключения к серверу
+                    self.chat_username_label.setText(self.username)
                     self.chat_window.show()  # Открываем окно авторизации / регистрации
                     thread = threading.Thread(
                         target=asyncio.run, args=(self.start_listening(),)
