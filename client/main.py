@@ -209,7 +209,7 @@ class Application:
 
     async def send_message(self):
         async with ClientSession() as session:
-            async with session.get(
+            await session.get(
                 f"http://{self.host}:{self.port}/ws/default",
                 json={
                     "action": "send_message",
@@ -217,8 +217,7 @@ class Application:
                     "message": self.chat_input_message.text(),
                     "silent": True,
                 },
-            ) as resp:
-                pass
+            )
 
     async def clear_history(self):
         """Очищает историю для всех пользователей в комнате"""
