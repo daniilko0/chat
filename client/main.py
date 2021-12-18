@@ -1,5 +1,4 @@
 import asyncio
-import io
 import re
 import sys
 import threading
@@ -21,7 +20,6 @@ from aiohttp import (
     ClientConnectionError,
     MultipartWriter,
 )
-from multidict import MultiMapping
 
 from database.core import init_db_connection
 from database.models import Message
