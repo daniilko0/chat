@@ -82,4 +82,15 @@ class WebSocket(web.View):
         file_path = assets_path / f"{file_uuid}{ext}"
         file_path.open("x+b").write(file.file.read())
 
+        attachment = await Attachment.create(
+            id=file_uuid,
+            type=file_type,
+            path=file_path,
+        )
+        await Message.create(
+            room_id=1,
+            user=await User.get(username=payload.get("username")),
+            attachment=attachment,
+        )
+
         return web.Response()
