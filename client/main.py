@@ -21,10 +21,8 @@ from PyQt5.QtWidgets import (
 from aiohttp import (
     ClientSession,
     ClientConnectionError,
-    MultipartWriter,
     FormData,
 )
-from multidict import MultiMapping, MultiDict
 
 from database.core import init_db_connection
 from database.models import Message
