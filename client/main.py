@@ -26,6 +26,7 @@ from aiohttp import (
 
 from database.core import init_db_connection
 from database.models import Message
+from database.types import AttachmentType
 
 
 class Application:
@@ -273,8 +274,14 @@ class Application:
                         username = "Вы"
                     else:
                         username = msg.user.username
-                    content = f"\n[{username}]: {msg.text if msg.text else ''}"
-                    self.chat_history_text_area.insertPlainText(content)
+                    if attachment := await msg.attachment:
+                        if attachment.type == AttachmentType.image:
+                            content = f"<br>[{username}]: <img src='{attachment.path}' width='{self.chat_history_text_area.width() - 25}'/>"
+                        else:
+                            content = f""
+                    else:
+                        content = f"<br>[{username}]: {msg.text if msg.text else ''}"
+                    self.chat_history_text_area.insertHtml(content)
             await asyncio.sleep(0.3)
 
 
