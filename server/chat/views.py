@@ -72,7 +72,9 @@ class WebSocket(web.View):
         data = await self.request.post()
         file: FileField = data.get("file")
         payload: dict = json.loads(data.get("payload_json"))
-        assets_path = Path(f"assets/{payload.get('attachment')}s")
+        path = f"assets/{payload.get('attachment')}s"
+        Path(path).mkdir(parents=True, exist_ok=True)
+        assets_path = Path(path)
         (
             assets_path
             / f"{uuid.uuid4().hex}{mimetypes.guess_extension(file.headers.get('Content-Type'))}"
