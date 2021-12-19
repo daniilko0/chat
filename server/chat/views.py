@@ -1,6 +1,11 @@
+import json
 import logging
+import mimetypes
+import uuid
+from pathlib import Path
 
 from aiohttp import web
+from aiohttp.web_request import FileField
 from tortoise.exceptions import DoesNotExist
 
 from database.models import Room, Message, User
@@ -64,5 +69,13 @@ class WebSocket(web.View):
         return web.Response()
 
     async def post(self):
-        print(await self.request.multipart())
+        data = await self.request.post()
+        file: FileField = data.get("file")
+        payload: dict = json.loads(data.get("payload_json"))
+        assets_path = Path(f"assets/{payload.get('attachment')}s")
+        (
+            assets_path
+            / f"{uuid.uuid4().hex}{mimetypes.guess_extension(file.headers.get('Content-Type'))}"
+        ).open("x+b").write(file.file.read())
+
         return web.Response()
