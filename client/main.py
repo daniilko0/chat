@@ -1,7 +1,10 @@
 import asyncio
+import json
+import mimetypes
 import re
 import sys
 import threading
+from pathlib import Path
 
 from PyQt5.QtWidgets import (
     QApplication,
@@ -19,7 +22,9 @@ from aiohttp import (
     ClientSession,
     ClientConnectionError,
     MultipartWriter,
+    FormData,
 )
+from multidict import MultiMapping, MultiDict
 
 from database.core import init_db_connection
 from database.models import Message
@@ -237,21 +242,27 @@ class Application:
         )[0]
 
         async with ClientSession() as session:
-            # TODO: Добавить boundary к данным
-            with MultipartWriter("form-data") as mpwriter:
-                mpwriter.append(open(file_name, "rb"))
-                mpwriter.append_json(
+            data = FormData()
+            data.add_field(
+                "file",
+                open(file_name, "rb"),
+                filename=Path(file_name).name,
+                content_type=mimetypes.guess_type(file_name)[0],
+            )
+            data.add_field(
+                "payload_json",
+                json.dumps(
                     {
                         "action": "send_message",
                         "username": self.username,
                         "attachment": "image",
                     }
-                )
-                await session.post(
-                    f"http://{self.host}:{self.port}/ws/default",
-                    headers={"Content-Type": "multipart/form-data"},
-                    data=mpwriter,
-                )
+                ),
+            )
+            await session.post(
+                f"http://{self.host}:{self.port}/ws/default",
+                data=data,
+            )
 
     async def start_listening(self):
         """Раз в 0.3 секунды обновляет сообщения в истории"""
