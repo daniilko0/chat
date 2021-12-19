@@ -8,7 +8,7 @@ from aiohttp import web
 from aiohttp.web_request import FileField
 from tortoise.exceptions import DoesNotExist
 
-from database.models import Room, Message, User
+from database.models import Room, Message, User, Attachment
 
 logging.basicConfig(level="DEBUG")
 
@@ -72,12 +72,14 @@ class WebSocket(web.View):
         data = await self.request.post()
         file: FileField = data.get("file")
         payload: dict = json.loads(data.get("payload_json"))
-        path = f"assets/{payload.get('attachment')}s"
-        Path(path).mkdir(parents=True, exist_ok=True)
-        assets_path = Path(path)
-        (
-            assets_path
-            / f"{uuid.uuid4().hex}{mimetypes.guess_extension(file.headers.get('Content-Type'))}"
-        ).open("x+b").write(file.file.read())
+
+        file_type = payload.get("attachment")
+        dir_path = f"assets/{file_type}s"
+        Path(dir_path).mkdir(parents=True, exist_ok=True)
+        assets_path = Path(dir_path)
+        file_uuid = uuid.uuid4().hex
+        ext = mimetypes.guess_extension(file.headers.get("Content-Type"))
+        file_path = assets_path / f"{file_uuid}{ext}"
+        file_path.open("x+b").write(file.file.read())
 
         return web.Response()
