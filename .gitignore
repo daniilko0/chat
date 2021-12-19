@@ -132,3 +132,6 @@ dmypy.json
 
 # Pycharm's stuff
 .idea/
+
+# Sent assets
+assets/
